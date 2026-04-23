@@ -296,6 +296,26 @@ require('lazy').setup({
   },
 
   {
+    'kdheepak/lazygit.nvim',
+    cmd = {
+      'LazyGit',
+      'LazyGitConfig',
+      'LazyGitCurrentFile',
+      'LazyGitFilter',
+      'LazyGitFilterCurrentFile',
+    },
+    -- optional for floating window border decoration
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+    },
+    -- setting the keybinding for lazygit with 'keys' is recommended in
+    -- order to load the plugin when the command is run for the first time
+    keys = {
+      { '<leader>lg', '<cmd>LazyGit<CR>', desc = 'LazyGit' },
+    },
+  },
+
+  {
     'pmizio/typescript-tools.nvim',
     dependencies = { 'nvim-lua/plenary.nvim', 'neovim/nvim-lspconfig' },
     opts = {},
@@ -459,6 +479,25 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
 
+      vim.keymap.set('n', '<leader>ud', function()
+        builtin.buffers {
+          attach_mappings = function(prompt_bufnr, map)
+            local actions = require 'telescope.actions'
+            local action_state = require 'telescope.actions.state'
+
+            actions.select_default:replace(function()
+              actions.close(prompt_bufnr)
+              local selection = action_state.get_selected_entry()
+              if selection then
+                vim.cmd('bd ' .. selection.bufnr)
+              end
+            end)
+
+            return true -- keep default mappings for everything else
+          end,
+        }
+      end, { desc = 'B[u]ffer [D]elete' })
+
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
         -- You can pass additional configuration to Telescope to change the theme, layout, etc.
@@ -602,6 +641,9 @@ require('lazy').setup({
 
           -- Activate the hover hint
           map('gh', vim.lsp.buf.hover, '[G]oto [H]over')
+
+          -- list buffers
+          map('<leader>ul', ':ls<CR>', 'B[u]ffer [l]ist')
 
           -- Fuzzy find all the classes in your current workspace.
           local findWsTypes = function()
@@ -1090,6 +1132,12 @@ vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
 })
 
 vim.keymap.set('n', '<leader>p', ':bp<CR>')
+vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+  pattern = { '*.component.html' },
+  callback = function()
+    vim.treesitter.start(nil, 'angular')
+  end,
+})
 
 -- let &shellcmdflag = '-NoLogo -ExecutionPolicy RemoteSigned -Command [Console]::InputEncoding=[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new();$PSDefaultParameterValues[''Out-File:Encoding'']=''utf8'';Remove-Alias -Force -ErrorAction SilentlyContinue tee;'
 -- let &shellredir = '2>&1 | %%{ "$_" } | Out-File %s; exit $LastExitCode'
