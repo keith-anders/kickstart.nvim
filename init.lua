@@ -99,7 +99,7 @@ do
   vim.g.maplocalleader = ' '
 
   -- Set to true if you have a Nerd Font installed and selected in the terminal
-  vim.g.have_nerd_font = false
+  vim.g.have_nerd_font = true
 
   -- [[ Setting options ]]
   --  See `:help vim.o`
@@ -110,7 +110,7 @@ do
   vim.o.number = true
   -- You can also add relative line numbers, to help with jumping.
   --  Experiment for yourself to see if you like it!
-  -- vim.o.relativenumber = true
+  -- vim.opt.relativenumber = true
 
   -- Enable mouse mode, can be useful for resizing splits for example!
   vim.o.mouse = 'a'
@@ -126,6 +126,13 @@ do
 
   -- Enable break indent
   vim.o.breakindent = true
+
+  -- Folding
+  vim.o.foldmethod = 'marker'
+  vim.o.foldmarker = '{,}'
+  vim.o.foldlevel = 2
+  vim.o.foldlevelstart = 1
+  vim.o.foldnestmax = 2
 
   -- Enable undo/redo changes even after closing and reopening a file
   vim.o.undofile = true
@@ -499,7 +506,11 @@ do
     --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
     --   },
     -- },
-    -- pickers = {}
+    pickers = {
+      find_files = {
+        find_command = { 'fd', '--type', 'f', '--strip-cwd-prefix' },
+      },
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
@@ -513,6 +524,7 @@ do
   local builtin = require 'telescope.builtin'
   vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
   vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
+  vim.keymap.set('n', '<leader>si', builtin.git_files, { desc = '[S]earch G[i]t files' })
   vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
   vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
@@ -581,7 +593,16 @@ do
   )
 
   -- Shortcut for searching your Neovim configuration files
-  vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = vim.fn.stdpath 'config', follow = true } end, { desc = '[S]earch [N]eovim files' })
+  vim.keymap.set('n', '<leader>sn', function()
+        builtin.find_files {
+          cwd = vim.fn.stdpath 'config',
+          hidden = true,
+          no_ignore = true,
+          follow = true,
+        }
+        end,
+        { desc = '[S]earch [N]eovim files' }
+      )
 end
 
 -- ============================================================
@@ -590,6 +611,10 @@ end
 -- ============================================================
 do
   -- [[ LSP Configuration ]]
+  opts = {
+    inlay_hints = { enabled = true },
+    },
+  },
   -- Brief aside: **What is LSP?**
   --
   -- LSP is an initialism you've probably heard, but might not understand what it is.
@@ -648,6 +673,19 @@ do
       --  For example, in C this would take you to the header.
       map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
+      -- Activate the hover hint
+      map('gh', vim.lsp.buf.hover, '[G]oto [H]over')
+
+      -- Fuzzy find all the classes in your current workspace.
+      local findWsTypes = function()
+        local lsp_symbols = vim.tbl_map(string.lower, vim.lsp.protocol.SymbolKind)
+        local symbols = vim.tbl_filter(function(symbol)
+          return symbol == 'class' or symbol == 'interface' or symbol == 'typeparameter'
+        end, lsp_symbols)
+        require('telescope.builtin').lsp_dynamic_workspace_symbols { symbols = symbols }
+      end
+      vim.keymap.set('n', '<leader>wt', findWsTypes, { buffer = event.buf, desc = 'LSP: [W]orkspace [T]ypes' })
+
       -- The following two autocommands are used to highlight references of the
       -- word under your cursor when your cursor rests there for a little while.
       --    See `:help CursorHold` for information about when this is executed
@@ -692,9 +730,9 @@ do
   --  See `:help lsp-config` for information about keys and how to configure
   ---@type table<string, vim.lsp.Config>
   local servers = {
-    -- clangd = {},
-    -- gopls = {},
-    -- pyright = {},
+    clangd = {},
+    gopls = {},
+    pyright = {},
     -- rust_analyzer = {},
     --
     -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -704,6 +742,8 @@ do
     -- ts_ls = {},
 
     stylua = {}, -- Used to format Lua code
+
+    angularls = {},
 
     -- Special Lua Config, as recommended by neovim help docs
     lua_ls = {
@@ -760,6 +800,8 @@ do
   local ensure_installed = vim.tbl_keys(servers or {})
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
+    'stylua',
+    -- 'roslyn',
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
@@ -782,11 +824,19 @@ do
     format_on_save = function(bufnr)
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
+        lua = true,
+        python = true,
+        typescript = true,
+        html = true,
+        css = true,
+        scss = true,
+        javascript = true,
+        cs = true,
+        typescriptangular = true,
+        htmlangular = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
+        return { timeout_ms = 5000 }
       else
         return nil
       end
@@ -795,13 +845,38 @@ do
       lsp_format = 'fallback', -- Use external formatters if configured below, otherwise use LSP formatting. Set to `false` to disable LSP formatting entirely.
     },
     -- You can also specify external formatters in here.
+    formatters = {
+      prettier = {
+        -- condition = function(_, ctx)
+        -- return M.has_parser(ctx) and (vim.g.lazyvim_prettier_needs_config ~= true or M.has_config(ctx))
+        -- end
+      },
+      csharpier = {
+        command = 'dotnet',
+        args = { 'csharpier', 'format', '$FILENAME' },
+        stdin = false,
+        require_cwd = false,
+      },
+    },
+    ft_parsers = {
+      html = 'htmlangular',
+      scss = 'scss',
+      typescriptangular = 'angular',
+    },
     formatters_by_ft = {
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
-      -- python = { "isort", "black" },
+      python = { 'isort', 'black' },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
-      -- javascript = { "prettierd", "prettier", stop_after_first = true },
+      javascript = { 'prettier', 'prettierd', stop_after_first = true },
+      typescript = { 'prettier', stop_after_first = true },
+      html = { 'prettier', stop_after_first = true },
+      htmlangular = { 'prettier', stop_after_first = true },
+      css = { 'prettier', stop_after_first = true },
+      scss = { 'prettier', stop_after_first = true },
+      json = { 'prettier', stop_after_first = true },
+      cs = { 'csharpier', stop_after_first = true },
     },
   }
 
@@ -904,7 +979,64 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
+  local parsers =
+    {
+      'angular',
+      'bash',
+      'c',
+      'cpp',
+      'css',
+      'csv',
+      'c_sharp',
+      'diff',
+      'dockerfile',
+      'editorconfig',
+      'git_config',
+      'git_rebase',
+      'gitattributes',
+      'gitcommit',
+      'gitignore',
+      'go',
+      'gomod',
+      'gosum',
+      'gotmpl',
+      'gowork',
+      'groovy',
+      'helm',
+      'html',
+      'html_tags',
+      'htmlangular',
+      'http',
+      'ini',
+      'java',
+      'javadoc',
+      'javascript',
+      'jq',
+      'jsdoc',
+      'json',
+      'json5',
+      'lua',
+      'luadoc',
+      'make',
+      'markdown',
+      'markdown_inline',
+      'mermaid',
+      'passwd',
+      'pem',
+      'powershell',
+      'python',
+      'query',
+      'scss',
+      'sql',
+      'templ',
+      'toml',
+      'tsv',
+      'typescriptangular',
+      'vim',
+      'vimdoc',
+      'xml',
+      'yaml',
+    },
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
@@ -927,6 +1059,7 @@ do
     -- Enable treesitter based indentation
     if has_indent_query then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
   end
+
 
   local available_parsers = require('nvim-treesitter').get_available()
   vim.api.nvim_create_autocmd('FileType', {
@@ -966,17 +1099,17 @@ do
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug'
+  require 'kickstart.plugins.debug'
   -- require 'kickstart.plugins.indent_line'
-  -- require 'kickstart.plugins.lint'
-  -- require 'kickstart.plugins.autopairs'
-  -- require 'kickstart.plugins.neo-tree'
-  -- require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
+  require 'kickstart.plugins.lint'
+  require 'kickstart.plugins.autopairs'
+  require 'kickstart.plugins.neo-tree'
+  require 'kickstart.plugins.gitsigns' -- adds gitsigns recommended keymaps
 
   -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- require 'custom.plugins'
+  require 'custom.plugins'
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
