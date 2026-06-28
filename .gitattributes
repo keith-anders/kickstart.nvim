@@ -1,0 +1,4 @@
+# Force LF line endings in the working tree on every platform.
+# Overrides each machine's core.autocrlf so the config never gets CRLF
+# checked out (which breaks sourcing on Linux/macOS with E492/E488 ^M errors).
+* text=auto eol=lf
