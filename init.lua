@@ -613,7 +613,6 @@ do
   -- [[ LSP Configuration ]]
   opts = {
     inlay_hints = { enabled = true },
-    },
   },
   -- Brief aside: **What is LSP?**
   --
