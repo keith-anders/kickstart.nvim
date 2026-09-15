@@ -593,16 +593,19 @@ do
   )
 
   -- Shortcut for searching your Neovim configuration files
-  vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files {
-          cwd = vim.fn.stdpath 'config',
-          hidden = true,
-          no_ignore = true,
-          follow = true,
-        }
-        end,
-        { desc = '[S]earch [N]eovim files' }
-      )
+  vim.keymap.set(
+    'n',
+    '<leader>sn',
+    function()
+      builtin.find_files {
+        cwd = vim.fn.stdpath 'config',
+        hidden = true,
+        no_ignore = true,
+        follow = true,
+      }
+    end,
+    { desc = '[S]earch [N]eovim files' }
+  )
 end
 
 -- ============================================================
@@ -611,36 +614,36 @@ end
 -- ============================================================
 do
   -- [[ LSP Configuration ]]
-  opts = {
-    inlay_hints = { enabled = true },
-  },
-  -- Brief aside: **What is LSP?**
-  --
-  -- LSP is an initialism you've probably heard, but might not understand what it is.
-  --
-  -- LSP stands for Language Server Protocol. It's a protocol that helps editors
-  -- and language tooling communicate in a standardized fashion.
-  --
-  -- In general, you have a "server" which is some tool built to understand a particular
-  -- language (such as `gopls`, `lua_ls`, `rust_analyzer`, etc.). These Language Servers
-  -- (sometimes called LSP servers, but that's kind of like ATM Machine) are standalone
-  -- processes that communicate with some "client" - in this case, Neovim!
-  --
-  -- LSP provides Neovim with features like:
-  --  - Go to definition
-  --  - Find references
-  --  - Autocompletion
-  --  - Symbol Search
-  --  - and more!
-  --
-  -- Thus, Language Servers are external tools that must be installed separately from
-  -- Neovim. This is where `mason` and related plugins come into play.
-  --
-  -- If you're wondering about lsp vs treesitter, you can check out the wonderfully
-  -- and elegantly composed help section, `:help lsp-vs-treesitter`
-
-  -- Useful status updates for LSP.
-  vim.pack.add { gh 'j-hui/fidget.nvim' }
+  opts =
+    {
+      inlay_hints = { enabled = true },
+    },
+    -- Brief aside: **What is LSP?**
+    --
+    -- LSP is an initialism you've probably heard, but might not understand what it is.
+    --
+    -- LSP stands for Language Server Protocol. It's a protocol that helps editors
+    -- and language tooling communicate in a standardized fashion.
+    --
+    -- In general, you have a "server" which is some tool built to understand a particular
+    -- language (such as `gopls`, `lua_ls`, `rust_analyzer`, etc.). These Language Servers
+    -- (sometimes called LSP servers, but that's kind of like ATM Machine) are standalone
+    -- processes that communicate with some "client" - in this case, Neovim!
+    --
+    -- LSP provides Neovim with features like:
+    --  - Go to definition
+    --  - Find references
+    --  - Autocompletion
+    --  - Symbol Search
+    --  - and more!
+    --
+    -- Thus, Language Servers are external tools that must be installed separately from
+    -- Neovim. This is where `mason` and related plugins come into play.
+    --
+    -- If you're wondering about lsp vs treesitter, you can check out the wonderfully
+    -- and elegantly composed help section, `:help lsp-vs-treesitter`
+    -- Useful status updates for LSP.
+    vim.pack.add { gh 'j-hui/fidget.nvim' }
   require('fidget').setup {}
 
   --  This function gets run when an LSP attaches to a particular buffer.
@@ -678,9 +681,7 @@ do
       -- Fuzzy find all the classes in your current workspace.
       local findWsTypes = function()
         local lsp_symbols = vim.tbl_map(string.lower, vim.lsp.protocol.SymbolKind)
-        local symbols = vim.tbl_filter(function(symbol)
-          return symbol == 'class' or symbol == 'interface' or symbol == 'typeparameter'
-        end, lsp_symbols)
+        local symbols = vim.tbl_filter(function(symbol) return symbol == 'class' or symbol == 'interface' or symbol == 'typeparameter' end, lsp_symbols)
         require('telescope.builtin').lsp_dynamic_workspace_symbols { symbols = symbols }
       end
       vim.keymap.set('n', '<leader>wt', findWsTypes, { buffer = event.buf, desc = 'LSP: [W]orkspace [T]ypes' })
@@ -742,7 +743,11 @@ do
 
     stylua = {}, -- Used to format Lua code
 
-    angularls = {},
+    -- Attached to template buffers only; typescript-tools owns .ts buffers.
+    -- Attaching both to .ts duplicates results (references, hover, rename).
+    angularls = {
+      filetypes = { 'htmlangular', 'html' },
+    },
 
     -- Special Lua Config, as recommended by neovim help docs
     lua_ls = {
@@ -800,6 +805,9 @@ do
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
     'stylua',
+    -- Java language server. Started per-buffer from ftplugin/java.lua via nvim-jdtls,
+    -- not through the servers table above.
+    'jdtls',
     -- 'roslyn',
   })
 
@@ -825,8 +833,11 @@ do
       local enabled_filetypes = {
         lua = true,
         python = true,
+        go = true,
         typescript = true,
         html = true,
+        -- typescript = true,
+        -- html = true,
         css = true,
         scss = true,
         javascript = true,
@@ -866,6 +877,7 @@ do
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
       python = { 'isort', 'black' },
+      go = { 'goimports' },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
       javascript = { 'prettier', 'prettierd', stop_after_first = true },
@@ -1035,8 +1047,7 @@ do
       'vimdoc',
       'xml',
       'yaml',
-    },
-  require('nvim-treesitter').install(parsers)
+    }, require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
   ---@param language string
@@ -1058,7 +1069,6 @@ do
     -- Enable treesitter based indentation
     if has_indent_query then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
   end
-
 
   local available_parsers = require('nvim-treesitter').get_available()
   vim.api.nvim_create_autocmd('FileType', {
