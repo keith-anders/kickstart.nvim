@@ -26,8 +26,7 @@ vim.keymap.set('n', '<S-F12>', function() require('dap').step_out() end, { desc 
 vim.keymap.set('n', '<F24>', function() require('dap').step_out() end, { desc = 'Debug: Step Out' })
 vim.keymap.set('n', '<leader>b', function() require('dap').toggle_breakpoint() end, { desc = 'Debug: Toggle Breakpoint' })
 vim.keymap.set('n', '<leader>B', function() require('dap').set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, { desc = 'Debug: Set Breakpoint' })
--- Toggle to see last session result. Without this, you can't see session output in case of unhandled exception.
-vim.keymap.set('n', '<F7>', function() require('dapui').toggle() end, { desc = 'Debug: See last session result.' })
+vim.keymap.set('n', '<F7>', function() require('dapui').toggle() end, { desc = 'Debug: Toggle UI' })
 
 local dap = require 'dap'
 local dapui = require 'dapui'
@@ -88,9 +87,16 @@ dapui.setup {
 -- nvim-dap's default stopped-line sign uses SignColumn and debugPC, which barely differ from Normal in most themes
 vim.fn.sign_define('DapStopped', { text = '▶', texthl = 'DiagnosticWarn', linehl = 'DapStoppedLine', numhl = 'DiagnosticWarn' })
 
+-- dap-ui stays open after the session ends so the program output and exit status remain readable; <F7> closes it.
 dap.listeners.after.event_initialized['dapui_config'] = dapui.open
-dap.listeners.before.event_terminated['dapui_config'] = dapui.close
-dap.listeners.before.event_exited['dapui_config'] = dapui.close
+
+-- nvim-dap discards the exit code from the `exited` event, so surface it here.
+dap.listeners.after.event_exited['kickstart_exit_code'] = function(session, body)
+  local code = body and body.exitCode
+  if code == nil then return end
+  local name = session.config and session.config.name or 'Debuggee'
+  vim.notify(string.format('%s exited with code %d', name, code), code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR)
+end
 
 -- Install golang specific config
 require('dap-go').setup {
@@ -99,7 +105,16 @@ require('dap-go').setup {
     -- See https://github.com/leoluz/nvim-dap-go/blob/main/README.md#configuring
     detached = vim.fn.has 'win32' == 0,
   },
+  tests = {
+    -- Applies to debug_test() and debug_last_test() only.
+    verbose = true,
+  },
 }
+
+-- The predefined test launch configurations ignore `tests.verbose`.
+for _, config in ipairs(dap.configurations.go or {}) do
+  if config.mode == 'test' and config.args == nil then config.args = { '-test.v' } end
+end
 
 vim.api.nvim_create_autocmd('FileType', {
   group = vim.api.nvim_create_augroup('kickstart-dap-go', { clear = true }),
