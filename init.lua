@@ -508,7 +508,11 @@ do
     -- },
     pickers = {
       find_files = {
-        find_command = { 'fd', '--type', 'f', '--strip-cwd-prefix' },
+        -- Debian/Ubuntu ship fd as `fdfind`; nil falls back to telescope's default finder chain
+        find_command = (function()
+          local fd = (vim.fn.executable 'fd' == 1 and 'fd') or (vim.fn.executable 'fdfind' == 1 and 'fdfind') or nil
+          return fd and { fd, '--type', 'f', '--strip-cwd-prefix' } or nil
+        end)(),
       },
     },
     extensions = {
