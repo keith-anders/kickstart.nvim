@@ -16,10 +16,14 @@ vim.pack.add {
 }
 
 -- Basic debugging keymaps, feel free to change to your liking!
+-- Many terminals send Shift+F<n> as F<n+12>, so each shifted key is mapped under both names.
 vim.keymap.set('n', '<F5>', function() require('dap').continue() end, { desc = 'Debug: Start/Continue' })
-vim.keymap.set('n', '<F1>', function() require('dap').step_into() end, { desc = 'Debug: Step Into' })
-vim.keymap.set('n', '<F2>', function() require('dap').step_over() end, { desc = 'Debug: Step Over' })
-vim.keymap.set('n', '<F3>', function() require('dap').step_out() end, { desc = 'Debug: Step Out' })
+vim.keymap.set('n', '<S-F5>', function() require('dap').terminate() end, { desc = 'Debug: Terminate' })
+vim.keymap.set('n', '<F17>', function() require('dap').terminate() end, { desc = 'Debug: Terminate' })
+vim.keymap.set('n', '<F10>', function() require('dap').step_over() end, { desc = 'Debug: Step Over' })
+vim.keymap.set('n', '<F12>', function() require('dap').step_into() end, { desc = 'Debug: Step Into' })
+vim.keymap.set('n', '<S-F12>', function() require('dap').step_out() end, { desc = 'Debug: Step Out' })
+vim.keymap.set('n', '<F24>', function() require('dap').step_out() end, { desc = 'Debug: Step Out' })
 vim.keymap.set('n', '<leader>b', function() require('dap').toggle_breakpoint() end, { desc = 'Debug: Toggle Breakpoint' })
 vim.keymap.set('n', '<leader>B', function() require('dap').set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, { desc = 'Debug: Set Breakpoint' })
 -- Toggle to see last session result. Without this, you can't see session output in case of unhandled exception.
@@ -81,6 +85,9 @@ dapui.setup {
 --   vim.fn.sign_define(tp, { text = icon, texthl = hl, numhl = hl })
 -- end
 
+-- nvim-dap's default stopped-line sign uses SignColumn and debugPC, which barely differ from Normal in most themes
+vim.fn.sign_define('DapStopped', { text = '▶', texthl = 'DiagnosticWarn', linehl = 'DapStoppedLine', numhl = 'DiagnosticWarn' })
+
 dap.listeners.after.event_initialized['dapui_config'] = dapui.open
 dap.listeners.before.event_terminated['dapui_config'] = dapui.close
 dap.listeners.before.event_exited['dapui_config'] = dapui.close
@@ -93,3 +100,11 @@ require('dap-go').setup {
     detached = vim.fn.has 'win32' == 0,
   },
 }
+
+vim.api.nvim_create_autocmd('FileType', {
+  group = vim.api.nvim_create_augroup('kickstart-dap-go', { clear = true }),
+  pattern = 'go',
+  callback = function(event)
+    vim.keymap.set('n', '<leader>rt', function() require('dap-go').debug_test() end, { buffer = event.buf, desc = 'Debug: [R]un nearest [T]est' })
+  end,
+})

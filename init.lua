@@ -131,7 +131,6 @@ do
   vim.o.foldmethod = 'marker'
   vim.o.foldmarker = '{,}'
   vim.o.foldlevel = 2
-  vim.o.foldlevelstart = 1
   vim.o.foldnestmax = 2
 
   -- Enable undo/redo changes even after closing and reopening a file
