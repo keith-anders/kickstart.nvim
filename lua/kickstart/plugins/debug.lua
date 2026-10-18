@@ -98,9 +98,17 @@ dap.listeners.after.event_exited['kickstart_exit_code'] = function(session, body
   vim.notify(string.format('%s exited with code %d', name, code), code == 0 and vim.log.levels.INFO or vim.log.levels.ERROR)
 end
 
+-- On Windows, Mason exposes delve as `dlv.cmd`, which vim.uv.spawn cannot launch; use the underlying exe instead.
+local delve_path = 'dlv'
+if vim.fn.has 'win32' == 1 then
+  local mason_dlv = vim.fn.stdpath 'data' .. '/mason/packages/delve/dlv.exe'
+  if vim.fn.executable(mason_dlv) == 1 then delve_path = mason_dlv end
+end
+
 -- Install golang specific config
 require('dap-go').setup {
   delve = {
+    path = delve_path,
     -- On Windows delve must be run attached or it crashes.
     -- See https://github.com/leoluz/nvim-dap-go/blob/main/README.md#configuring
     detached = vim.fn.has 'win32' == 0,
